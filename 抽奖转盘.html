@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14151f">
+<title>决策转盘</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%2314151f'/%3E%3Cg transform='translate(256,264)'%3E%3Cpath d='M0,0 L0,-168 A168,168 0 0,1 145.5,-84 Z' fill='%23FF6B6B'/%3E%3Cpath d='M0,0 L145.5,-84 A168,168 0 0,1 145.5,84 Z' fill='%23FFD93D'/%3E%3Cpath d='M0,0 L145.5,84 A168,168 0 0,1 0,168 Z' fill='%236BCB77'/%3E%3Cpath d='M0,0 L0,168 A168,168 0 0,1 -145.5,84 Z' fill='%234D96FF'/%3E%3Cpath d='M0,0 L-145.5,84 A168,168 0 0,1 -145.5,-84 Z' fill='%23B983FF'/%3E%3Cpath d='M0,0 L-145.5,-84 A168,168 0 0,1 0,-168 Z' fill='%23FF9F45'/%3E%3C/g%3E%3Ccircle cx='256' cy='264' r='52' fill='%23FFD93D'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(ellipse at 50% 30%, #23243a 0%, #14151f 70%, #0c0d16 100%);
+    color: #f0f0f5;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ===== 顶栏 ===== */
+  .topbar {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px 0;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .title span { color: #FFD93D; }
+  .icon-btn {
+    width: 44px; height: 44px;
+    min-width: 44px; min-height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #f0f0f5;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.18); }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  /* ===== 转盘区域 ===== */
+  .stage {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 10px 0;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: min(88vw, 88vh, 420px);
+    height: min(88vw, 88vh, 420px);
+  }
+  /* 外圈光晕 */
+  .wheel-wrap::before {
+    content:'';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,217,61,0.15) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .wheel-outer {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #3a3b52, #1c1d2e);
+    box-shadow:
+      0 0 0 6px #2a2b3d,
+      0 0 0 8px #4a4b63,
+      0 20px 60px rgba(0,0,0,0.6),
+      inset 0 2px 8px rgba(255,255,255,0.1);
+  }
+  #wheel {
+    position: absolute;
+    top: 12px; left: 12px; right: 12px; bottom: 12px;
+    width: calc(100% - 24px);
+    height: calc(100% - 24px);
+    border-radius: 50%;
+    transition: transform 5s cubic-bezier(0.15, 0.9, 0.2, 1);
+    will-change: transform;
+  }
+  /* 中心按钮 */
+  .hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #fff3b0 0%, #ffd93d 35%, #f5b81d 70%, #c78a0a 100%);
+    box-shadow:
+      0 10px 28px rgba(0,0,0,0.55),
+      0 0 0 4px rgba(255,255,255,0.15),
+      0 0 36px rgba(255,217,61,0.45),
+      inset 0 4px 8px rgba(255,255,255,0.6),
+      inset 0 -8px 14px rgba(139,90,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    border: none;
+    color: #4a2e00;
+    font-size: clamp(18px, 6vw, 26px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-indent: 4px;
+    transition: transform .1s;
+  }
+  .hub:active { transform: translate(-50%, -50%) scale(0.92); }
+  .hub:disabled { cursor: default; opacity: 0.85; }
+
+  /* 指针 */
+  .pointer {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 30px solid #ff4757;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.5));
+    z-index: 10;
+  }
+  .pointer::after {
+    content:'';
+    position: absolute;
+    top: -34px; left: -10px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #ff4757;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3);
+  }
+
+  /* ===== 结果显示 ===== */
+  .result-bar {
+    position: absolute;
+    bottom: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,21,31,0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,217,61,0.35);
+    padding: 12px 32px;
+    border-radius: 28px;
+    font-size: 24px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .3s;
+    z-index: 6;
+    box-shadow: 0 0 28px rgba(255,217,61,0.3), 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .result-bar.show { opacity: 1; }
+  .result-bar b {
+    color: #FFD93D;
+    font-size: 33px;
+    font-weight: 900;
+    margin-left: 8px;
+    text-shadow: 0 0 14px rgba(255,217,61,0.7), 0 0 4px rgba(255,217,61,0.5);
+  }
+
+  /* ===== 设置面板 ===== */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+    z-index: 20;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(88vw, 360px);
+    background: #1e1f30;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+    transform: translateX(100%);
+    transition: transform .3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    padding-top: calc(20px + env(safe-area-inset-top));
+  }
+  .panel.open { transform: translateX(0); }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .panel-head h2 { font-size: 18px; font-weight: 700; }
+  .option-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .option-item {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .color-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+  .option-item input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f0f0f5;
+    font-size: 16px;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .option-item .del {
+    background: none; border: none;
+    color: #ff6b81;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+  .add-btn {
+    margin-top: 8px;
+    padding: 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px dashed rgba(255,255,255,0.25);
+    border-radius: 10px;
+    color: #ccc;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .panel-foot {
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .reset-btn {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255,107,107,0.15);
+    border: 1px solid rgba(255,107,107,0.3);
+    color: #ff6b6b;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .hint-text {
+    font-size: 12px;
+    color: #888;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  /* ===== 结果弹窗 ===== */
+  .result-modal {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+    z-index: 30;
+  }
+  .result-modal.show { opacity: 1; pointer-events: auto; }
+  .result-card {
+    background: rgba(40,42,66,0.55);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 24px;
+    padding: 40px 48px;
+    text-align: center;
+    transform: scale(0.7);
+    opacity: 0;
+    transition: transform .35s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity .25s ease;
+    max-width: 85vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .result-modal.show .result-card { transform: scale(1); opacity: 1; }
+  .result-card .label { font-size: 14px; color: #bbb; letter-spacing: 3px; margin-bottom: 12px; }
+  .result-card .value {
+    font-size: 38px;
+    font-weight: 900;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    word-break: break-word;
+    text-shadow: 0 0 20px rgba(255,217,61,0.5);
+  }
+  .result-card .tap-hint {
+    font-size: 12px;
+    color: #999;
+    letter-spacing: 1px;
+  }
+  .result-card { cursor: pointer; }
+  .result-card:active { transform: scale(0.96); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="title">决策<span>转盘</span></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+</div>
+
+<div class="stage">
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <div class="wheel-outer"></div>
+    <canvas id="wheel" width="1000" height="1000"></canvas>
+    <button class="hub" id="hubBtn">开始</button>
+    <div class="result-bar" id="resultBar">结果：<b id="resultBarText">-</b></div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="overlay" id="overlay"></div>
+<aside class="panel" id="panel">
+  <div class="panel-head">
+    <h2>自定义选项</h2>
+    <button class="icon-btn" id="closePanel" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="option-list" id="optionList"></div>
+  <button class="add-btn" id="addBtn">+ 添加一个选项</button>
+  <div class="panel-foot">
+    <button class="reset-btn" id="resetBtn">恢复默认选项</button>
+    <p class="hint-text">修改即时保存。建议 3–12 个选项，文字过长会自动缩小。手机浏览器可"添加到主屏幕"，像 App 一样使用。</p>
+  </div>
+</aside>
+
+<!-- 结果弹窗 -->
+<div class="result-modal" id="resultModal">
+  <div class="result-card">
+    <div class="label">恭喜抽中</div>
+    <div class="value" id="resultValue">-</div>
+    <div class="tap-hint">点击任意处关闭</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ===== 默认选项 =====
+  var DEFAULT_OPTIONS = ['火锅','烧烤','奶茶','日料','快餐','披萨'];
+  var COLORS = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#B983FF','#FF9F45','#FF6FB5','#2EC4B6','#A8E6CF','#FF8B94','#845EC2','#00C9A7'];
+  var STORAGE_KEY = 'lucky-wheel-options-v1';
+
+  var canvas = document.getElementById('wheel');
+  var ctx = canvas.getContext('2d');
+  var hubBtn = document.getElementById('hubBtn');
+  var settingsBtn = document.getElementById('settingsBtn');
+  var closePanel = document.getElementById('closePanel');
+  var overlay = document.getElementById('overlay');
+  var panel = document.getElementById('panel');
+  var addBtn = document.getElementById('addBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var optionList = document.getElementById('optionList');
+  var resultModal = document.getElementById('resultModal');
+  var resultValue = document.getElementById('resultValue');
+  var resultBar = document.getElementById('resultBar');
+  var resultBarText = document.getElementById('resultBarText');
+
+  var options = loadOptions();
+  var currentRotation = 0;   // 当前转盘旋转角度（deg，顺时针）
+  var spinning = false;
+
+  // ===== 持久化 =====
+  function loadOptions(){
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length >= 2) return arr.filter(function(s){return s && s.trim();});
+      }
+    } catch(e){}
+    return DEFAULT_OPTIONS.slice();
+  }
+  function saveOptions(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(options)); } catch(e){}
+  }
+
+  // ===== 绘制转盘 =====
+  function drawWheel(){
+    var n = options.length;
+    var w = canvas.width;
+    var cx = w/2, cy = w/2, r = w/2 - 10;
+    ctx.clearRect(0,0,w,w);
+    var slice = (Math.PI*2)/n;
+    // 从顶部（-90°）开始，顺时针
+    for (var i=0; i<n; i++){
+      var start = -Math.PI/2 + i*slice;
+      var end = start + slice;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,end);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 文字：始终头朝上，沿半径排布
+      var midAngle = start + slice/2;
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.textBaseline = 'middle';
+      var text = options[i];
+      if (text.length > 6) text = text.slice(0,6);
+      var len = text.length;
+      // 径向可用长度：从外端 r-24 到中心按钮边缘 r*0.32
+      var radialLen = (r - 24) - r * 0.32;
+      // 弧向可用宽度：文字中点半径处的弧长留 30% 余量
+      var midR = ((r - 24) + r * 0.32) / 2;
+      var arcW = slice * midR * 0.7;
+      // 取径向、弧向两个约束的较小值，限制在 [18, 46]
+      var fontSize = Math.min(radialLen / len, arcW, 46);
+      fontSize = Math.max(18, fontSize);
+      ctx.font = '900 ' + fontSize + 'px "Noto Sans SC", sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 2;
+      if (Math.cos(midAngle) < 0) {
+        // 左半圆：翻转 180°，从外侧向中心写，保持头朝上
+        ctx.rotate(midAngle + Math.PI);
+        ctx.textAlign = 'left';
+        ctx.fillText(text, -(r - 24), 0);
+      } else {
+        // 右半圆：从中心向外侧写
+        ctx.rotate(midAngle);
+        ctx.textAlign = 'right';
+        ctx.fillText(text, r - 24, 0);
+      }
+      ctx.restore();
+    }
+    // 中心圆装饰
+    ctx.beginPath();
+    ctx.arc(cx,cy,r*0.18,0,Math.PI*2);
+    ctx.fillStyle = '#1e1f30';
+    ctx.fill();
+  }
+
+  // ===== 旋转 =====
+  function spin(){
+    if (spinning) return;
+    var n = options.length;
+    if (n < 2) { alert('至少需要 2 个选项'); return; }
+    spinning = true;
+    hubBtn.disabled = true;
+    resultModal.classList.remove('show');
+    resultBar.classList.remove('show');
+
+    var targetIndex = Math.floor(Math.random()*n);
+    var sliceDeg = 360/n;
+    // 扇区内随机偏移（避开边缘）
+    var offsetInSlice = (Math.random() - 0.5) * sliceDeg * 0.6;
+    // 需要旋转到：让 targetIndex 扇区中心对准顶部指针
+    // 扇区中心在转盘自身角度 = (targetIndex + 0.5) * sliceDeg
+    // 要让它到顶部(0°)，转盘需顺时针转 360 - (targetIndex+0.5)*sliceDeg
+    var spins = 5 + Math.floor(Math.random()*3); // 5-7 圈
+    var currentMod = currentRotation % 360;
+    var targetMod = (360 - (targetIndex + 0.5)*sliceDeg + offsetInSlice + 360) % 360;
+    var delta = (targetMod - currentMod + 360) % 360 + spins*360;
+    var targetRotation = currentRotation + delta;
+
+    // 强制 reflow 让 transition 生效
+    canvas.style.transition = 'none';
+    canvas.style.transform = 'rotate(' + currentRotation + 'deg)';
+    void canvas.offsetWidth;
+    canvas.style.transition = '';
+    canvas.style.transform = 'rotate(' + targetRotation + 'deg)';
+    currentRotation = targetRotation;
+
+    setTimeout(function(){
+      spinning = false;
+      hubBtn.disabled = false;
+      onResult(targetIndex);
+    }, 5100);
+  }
+
+  function onResult(index){
+    var text = options[index];
+    resultValue.textContent = text;
+    resultBarText.textContent = text;
+    resultBar.classList.add('show');
+    resultModal.classList.add('show');
+  }
+
+  // ===== 设置面板 =====
+  function renderOptions(){
+    optionList.innerHTML = '';
+    options.forEach(function(opt, i){
+      var row = document.createElement('div');
+      row.className = 'option-item';
+      row.innerHTML =
+        '<span class="color-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' +
+        '<input type="text" value="' + escapeHtml(opt) + '" data-i="' + i + '" maxlength="10">' +
+        '<button class="del" data-i="' + i + '" aria-label="删除">×</button>';
+      optionList.appendChild(row);
+    });
+    optionList.querySelectorAll('input').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var i = parseInt(this.dataset.i,10);
+        options[i] = this.value;
+        saveOptions();
+        drawWheel();
+      });
+    });
+    optionList.querySelectorAll('.del').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var i = parseInt(this.dataset.i,10);
+        if (options.length <= 2) { alert('至少保留 2 个选项'); return; }
+        options.splice(i,1);
+        saveOptions();
+        renderOptions();
+        drawWheel();
+      });
+    });
+  }
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function openPanel(){ panel.classList.add('open'); overlay.classList.add('open'); renderOptions(); }
+  function closePanelFn(){ panel.classList.remove('open'); overlay.classList.remove('open'); }
+
+  // ===== 事件绑定 =====
+  hubBtn.addEventListener('click', spin);
+  settingsBtn.addEventListener('click', openPanel);
+  closePanel.addEventListener('click', closePanelFn);
+  overlay.addEventListener('click', closePanelFn);
+  addBtn.addEventListener('click', function(){
+    if (options.length >= 12) { alert('最多 12 个选项'); return; }
+    options.push('选项' + (options.length+1));
+    saveOptions();
+    renderOptions();
+    drawWheel();
+    // focus 新输入
+    var inputs = optionList.querySelectorAll('input');
+    if (inputs.length) { inputs[inputs.length-1].focus(); inputs[inputs.length-1].select(); }
+  });
+  resetBtn.addEventListener('click', function(){
+    options = DEFAULT_OPTIONS.slice();
+    saveOptions();
+    renderOptions();
+    drawWheel();
+  });
+  resultModal.addEventListener('click', function(){
+    resultModal.classList.remove('show');
+  });
+
+  // ===== 初始化 =====
+  drawWheel();
+})();
+</script>
+</body>
+</html>
